@@ -8,6 +8,7 @@
   <script src='https://api.mapbox.com/mapbox-gl-js/v1.12.0/mapbox-gl.js'></script>
   <link href='https://api.mapbox.com/mapbox-gl-js/v1.12.0/mapbox-gl.css' rel='stylesheet' />
   <script src='https://api.mapbox.com/mapbox.js/plugins/turf/v3.0.11/turf.min.js'></script>
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
   <script src='js/mapbox-gl-inspect.js'></script>
   <link href='css/mapbox-gl-inspect.css' rel='stylesheet' />
   <style>
@@ -33,11 +34,18 @@
     }
 
     .map-overlay .map-overlay-inner {
-      background-color: rgba(255,255,255,0.75);
+      background-color: rgba(255, 255, 255, 0.75);
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
       border-radius: 3px;
       padding: 10px;
       margin-bottom: 10px;
+    }
+
+    .map-overlay .map-overlay-under {
+      background-color: rgba(255, 255, 255, 0.75);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+      border-radius: 3px;
+      padding-bottom: 220px;
     }
 
     .map-overlay h2 {
@@ -54,6 +62,20 @@
       margin: 0;
       cursor: ew-resize;
     }
+
+    @import url(https://fonts.googleapis.com/css?family=Roboto);
+
+    body {
+      font-family: Roboto, sans-serif;
+    }
+
+    #chart {
+      max-width: 360px;
+      margin: 0px auto;
+      position: absolute;
+      top: 10px;
+      right: 15px;
+    }
   </style>
 </head>
 
@@ -65,6 +87,9 @@
       <h2>Average Sea Ice Extent in March</h2>
       <label id="year"></label>
       <input id="slider" type="range" min="1979" max="2020" step="1" value="1979" />
+    </div>
+    <div class="map-overlay-under">
+      <div id="chart"></div>
     </div>
   </div>
   <script>
@@ -163,41 +188,59 @@
           filterBy(year);
         });
 
-        // Create a popup without adding to map
-        var popup = new mapboxgl.Popup({
-          closeButton: false,
-          closeOnClick: false
-        });
+      var options = {
+        chart: {
+          type: 'line'
+        },
+        series: [{
+          name: 'sea ice mi<sup>2</sup>',
+          // COULD NOT FIGURE OUT HOW TO RETURN THESE VALUES FROM THE TILESET
+          data: [6457040, 6332040, 6095554, 6324077, 6327696, 6124994, 6313942, 6313942, 6241548, 6342416, 6076490, 6249029, 6074077, 6102069, 6242754, 6129096, 6018816, 5927842, 6110033, 6136336, 6049463, 5994203, 6136336, 6052600, 6093382, 5879579, 5763508, 5624270, 5732378, 5980448, 5915535, 5889473, 5674946, 5977069, 5893817, 5794154, 5614859, 5652745, 5595072, 5591452, 5719589, 5828903]
+          //data: [6457039.88, 6332040.00, 6095553.75, 6324076.69, 6327696.38, 6124993.88, 6313941.56, 6313941.56, 6241547.81, 6342416.44, 6076490.06, 6249028.50, 6074076.94, 6102069.19, 6242754.38, 6129096.19, 6018816.38, 5927841.56, 6110032.50, 6136335.56, 6049463.06, 5994202.50, 6136335.56, 6052600.13, 6093381.94, 5879579.06, 5763507.75, 5624270.44, 5732378.44, 5980447.69, 5915534.63, 5889472.88, 5674946.06, 5977069.31, 5893816.50, 5794154.44, 5614859.25, 5652745.31, 5595071.63, 5591451.94, 5719588.88, 5828903.44]
+        }],
+        xaxis: {
+          categories: years
+        }
+      }
 
-        map.on('mousemove', 'sea_ice_north_march', function (e) {
+      var chart = new ApexCharts(document.querySelector("#chart"), options);
+      chart.render();
 
-          // Declare variable for ice vector
-          var iceFeature = e.features[0];
+      // Create a popup without adding to map
+      var popup = new mapboxgl.Popup({
+        closeButton: false,
+        closeOnClick: false
+      });
 
-          console.log(iceFeature);
+      map.on('mousemove', 'sea_ice_north_march', function(e) {
 
-/* Not totaling all areas ... projection issue? Going to hard code this in QGIS.
-          // Use turf to calculate area
-          var areaSqMi = (turf.area(iceFeature)*0.00000038610).toFixed(2);
-*/
-          var areaSqMi = iceFeature.properties.sqMi;
+        // Declare variable for ice vector
+        var iceFeature = e.features[0];
 
-          // Change the cursor style as a UI indicator.
-          map.getCanvas().style.cursor = 'pointer';
-          // Get the popup
-          popup
-  					.setLngLat(e.lngLat)
-  					.setHTML("March, "  + iceFeature.properties.year + "<br>" +
-  									 "Sea Ice: " + areaSqMi + " mi<sup>2</sup>")
-  					.addTo(map);
-        });
+        console.log(iceFeature);
 
-        // Change the cursor style back to a pointer
-        // and remove the popup when it leaves.
-  			map.on('mouseleave', 'sea_ice_north_march', function(e) {
-  				map.getCanvas().style.cursor = '';
-          popup.remove();
-  			});
+        /* Not totaling all areas ... projection issue? Going to hard code this in QGIS.
+                  // Use turf to calculate area
+                  var areaSqMi = (turf.area(iceFeature)*0.00000038610).toFixed(2);
+        */
+        var areaSqMi = iceFeature.properties.sqMi;
+
+        // Change the cursor style as a UI indicator.
+        map.getCanvas().style.cursor = 'pointer';
+        // Get the popup
+        popup
+          .setLngLat(e.lngLat)
+          .setHTML("March, " + iceFeature.properties.year + "<br>" +
+            "Sea Ice: " + areaSqMi + " mi<sup>2</sup><br>")
+          .addTo(map);
+      });
+
+      // Change the cursor style back to a pointer
+      // and remove the popup when it leaves.
+      map.on('mouseleave', 'sea_ice_north_march', function(e) {
+        map.getCanvas().style.cursor = '';
+        popup.remove();
+      });
 
     });
   </script>
