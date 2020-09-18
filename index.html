@@ -3,14 +3,13 @@
 
 <head>
   <meta charset='utf-8' />
-  <title>Display a map</title>
+  <title>Northern Sea Ice Extent: March 1979 - 2020</title>
   <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
   <script src='https://api.mapbox.com/mapbox-gl-js/v1.12.0/mapbox-gl.js'></script>
   <link href='https://api.mapbox.com/mapbox-gl-js/v1.12.0/mapbox-gl.css' rel='stylesheet' />
+  <script src="https://d3js.org/d3.v6.min.js"></script>
   <script src='https://api.mapbox.com/mapbox.js/plugins/turf/v3.0.11/turf.min.js'></script>
   <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-  <script src='js/mapbox-gl-inspect.js'></script>
-  <link href='css/mapbox-gl-inspect.css' rel='stylesheet' />
   <style>
     body {
       margin: 0;
@@ -78,7 +77,6 @@
     }
   </style>
 </head>
-
 <body>
 
   <div id='map'></div>
@@ -95,139 +93,122 @@
   <script>
     mapboxgl.accessToken = 'pk.eyJ1IjoiamVib3dlMyIsImEiOiJjajY1M3l6bWIxeTQwMndtcXRuN3F4ejFpIn0.aE7P49pqaBKjy2HTOw-tgw';
 
-    var map = new mapboxgl.Map({
+    const map = new mapboxgl.Map({
       container: 'map', // container id
       style: 'mapbox://styles/jebowe3/ckf732iti02zw1as14q0tjxgj', // stylesheet location
-      center: [0, 0], // starting position [lng, lat]
-      zoom: 2.8 // starting zoom
+      center: [0, 5], // starting position [lng, lat]
+      zoom: 2.5 // starting zoom
     });
 
-    var years = [
-      '1979',
-      '1980',
-      '1981',
-      '1982',
-      '1983',
-      '1984',
-      '1985',
-      '1986',
-      '1987',
-      '1988',
-      '1989',
-      '1990',
-      '1991',
-      '1992',
-      '1993',
-      '1994',
-      '1995',
-      '1996',
-      '1997',
-      '1998',
-      '1999',
-      '2000',
-      '2001',
-      '2002',
-      '2003',
-      '2004',
-      '2005',
-      '2006',
-      '2007',
-      '2008',
-      '2009',
-      '2010',
-      '2011',
-      '2012',
-      '2013',
-      '2014',
-      '2015',
-      '2016',
-      '2017',
-      '2018',
-      '2019',
-      '2020'
-    ];
+    // empty array to hold all the years in the data
+    const years = [];
+
+    // empty array to hold all the areas in the data
+    const areas = [];
 
     function filterBy(year) {
-      var filters = ['==', 'year', year];
+      let filters = ['==', 'year', year];
       map.setFilter('sea_ice_north_march', filters);
-      var label = document.getElementById('slider').value;
+      let label = document.getElementById('slider').value;
       document.getElementById('year').textContent = label;
     };
-    /*
-    // add MapboxInspect to the map
-    map.addControl(new MapboxInspect({
-      showInspectMap: true
-    }));
-    */
-    map.on('load', function() {
-      // Data courtesy of ftp://sidads.colorado.edu/DATASETS/NOAA/G02135/north/monthly/shapefiles/shp_extent/03_Mar/
-      map.addSource('sea_ice_north_march-bykoc3', { // sea ice source requested here
-        type: 'vector',
-        url: 'mapbox://jebowe3.67zuyu1d' // update with your mapbox username and the tileset ID
+
+    // when the map is done loading
+    map.on('load', () => {
+      // request our GEOJSON data
+      d3.json('./data/sea_ice_march_4326_reduced_new.geojson').then((geojson) => {
+        // when loaded
+        addLayer(geojson);
+        addChart(geojson);
+        //addLegend(geojson);
+        addInteraction(geojson);
       });
-      // add the sea ice layer
+    });
+
+    function addLayer(geojson) {
+      // first add the source to the map
+      map.addSource('sea_ice', {
+        type: 'geojson',
+        data: geojson // use our data as the data source
+      });
+      // add the GeoJSON data as a mapbox gl layer
       map.addLayer({
-        'id': 'sea_ice_north_march', // provide an id for later reference
+        'id': 'sea_ice_north_march',
         'type': 'fill',
-        'source': 'sea_ice_north_march-bykoc3', // refers to the source name we entered above
-        'source-layer': 'sea_ice_north_march-bykoc3', // refers to the name of the tileset hosted on Mapbox Studio
-        'layout': {},
+        'source': 'sea_ice', // refers to source above
         'paint': {
           'fill-color': '#87bad4',
           'fill-opacity': 0.7
         },
       });
-
-      // Set filter to first year
+      // set filter to first year
       filterBy('1979');
-
+      // retrieve the slider
       document
         .getElementById('slider')
         .addEventListener('input', function(e) {
-          var year = e.target.value;
+          let year = e.target.value;
           filterBy(year);
         });
+    };
 
-      var options = {
+    // define the function that adds the sea ice area chart
+    function addChart(geojson) {
+      // for each geojson feature...
+      geojson.features.forEach((feature) => {
+        // push the year to the empty years array
+        years.push(feature.properties.year);
+      });
+      // now sort the years array and for each year in sequence...
+      years.sort().forEach(function iterate(item) {
+        // iterate through each geojson feature again and...
+        geojson.features.forEach((feature) => {
+          // if the feature's year equals the year in sequence...
+          if (feature.properties.year == item) {
+            // push the sea ice area property to the empty areas array
+            areas.push(feature.properties.sqMi);
+          }
+        });
+      });
+
+      // define the chart options
+      const options = {
         chart: {
           type: 'line'
         },
         series: [{
           name: 'sea ice mi<sup>2</sup>',
-          // COULD NOT FIGURE OUT HOW TO RETURN THESE VALUES FROM THE TILESET
-          data: [6457040, 6332040, 6095554, 6324077, 6327696, 6124994, 6313942, 6313942, 6241548, 6342416, 6076490, 6249029, 6074077, 6102069, 6242754, 6129096, 6018816, 5927842, 6110033, 6136336, 6049463, 5994203, 6136336, 6052600, 6093382, 5879579, 5763508, 5624270, 5732378, 5980448, 5915535, 5889473, 5674946, 5977069, 5893817, 5794154, 5614859, 5652745, 5595072, 5591452, 5719589, 5828903]
-          //data: [6457039.88, 6332040.00, 6095553.75, 6324076.69, 6327696.38, 6124993.88, 6313941.56, 6313941.56, 6241547.81, 6342416.44, 6076490.06, 6249028.50, 6074076.94, 6102069.19, 6242754.38, 6129096.19, 6018816.38, 5927841.56, 6110032.50, 6136335.56, 6049463.06, 5994202.50, 6136335.56, 6052600.13, 6093381.94, 5879579.06, 5763507.75, 5624270.44, 5732378.44, 5980447.69, 5915534.63, 5889472.88, 5674946.06, 5977069.31, 5893816.50, 5794154.44, 5614859.25, 5652745.31, 5595071.63, 5591451.94, 5719588.88, 5828903.44]
+          // use the areas array for the data
+          data: areas
         }],
         xaxis: {
-          categories: years
+          // use the sorted array years as the categories
+          categories: years.sort()
         }
       }
-
-      var chart = new ApexCharts(document.querySelector("#chart"), options);
+      // define the chart
+      const chart = new ApexCharts(document.querySelector("#chart"), options);
+      // draw it on the page
       chart.render();
+    };
 
-      // Create a popup without adding to map
-      var popup = new mapboxgl.Popup({
+    function addInteraction(geojson) {
+
+      // create a popup without adding to map
+      const popup = new mapboxgl.Popup({
         closeButton: false,
         closeOnClick: false
       });
 
+      // when the mouse moves on the vector...
       map.on('mousemove', 'sea_ice_north_march', function(e) {
-
-        // Declare variable for ice vector
-        var iceFeature = e.features[0];
-
-        console.log(iceFeature);
-
-        /* Not totaling all areas ... projection issue? Going to hard code this in QGIS.
-                  // Use turf to calculate area
-                  var areaSqMi = (turf.area(iceFeature)*0.00000038610).toFixed(2);
-        */
-        var areaSqMi = iceFeature.properties.sqMi;
-
-        // Change the cursor style as a UI indicator.
+        // define ice vector
+        let iceFeature = e.features[0];
+        // define the area covered by ice
+        let areaSqMi = iceFeature.properties.sqMi;
+        // change the cursor style as a UI indicator.
         map.getCanvas().style.cursor = 'pointer';
-        // Get the popup
+        // get the popup defined above
         popup
           .setLngLat(e.lngLat)
           .setHTML("March, " + iceFeature.properties.year + "<br>" +
@@ -235,14 +216,16 @@
           .addTo(map);
       });
 
-      // Change the cursor style back to a pointer
-      // and remove the popup when it leaves.
+      // when the mouse leaves the vector...
       map.on('mouseleave', 'sea_ice_north_march', function(e) {
+        // change the cursor style back to a pointer
         map.getCanvas().style.cursor = '';
+        // and remove the popup
         popup.remove();
       });
 
-    });
+    };
+
   </script>
 
 </body>
