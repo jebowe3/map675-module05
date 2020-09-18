@@ -7,6 +7,7 @@
   <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
   <script src='https://api.mapbox.com/mapbox-gl-js/v1.12.0/mapbox-gl.js'></script>
   <link href='https://api.mapbox.com/mapbox-gl-js/v1.12.0/mapbox-gl.css' rel='stylesheet' />
+  <script src='https://api.mapbox.com/mapbox.js/plugins/turf/v3.0.11/turf.min.js'></script>
   <script src='js/mapbox-gl-inspect.js'></script>
   <link href='css/mapbox-gl-inspect.css' rel='stylesheet' />
   <style>
@@ -162,13 +163,41 @@
           filterBy(year);
         });
 
-        map.on('mouseenter', 'sea_ice_north_march', function(e) {
-
-          let features = map.queryRenderedFeatures(e.point);
-
-          console.log(features[0].properties);
-
+        // Create a popup without adding to map
+        var popup = new mapboxgl.Popup({
+          closeButton: false,
+          closeOnClick: false
         });
+
+        map.on('mousemove', 'sea_ice_north_march', function (e) {
+
+          // Declare variable for ice vector
+          var iceFeature = e.features[0];
+
+          console.log(iceFeature);
+
+/* Not totaling all areas ... projection issue? Going to hard code this in QGIS.
+          // Use turf to calculate area
+          var areaSqMi = (turf.area(iceFeature)*0.00000038610).toFixed(2);
+*/
+          var areaSqMi = iceFeature.properties.sqMi;
+
+          // Change the cursor style as a UI indicator.
+          map.getCanvas().style.cursor = 'pointer';
+          // Get the popup
+          popup
+  					.setLngLat(e.lngLat)
+  					.setHTML("March, "  + iceFeature.properties.year + "<br>" +
+  									 "Sea Ice: " + areaSqMi + " mi<sup>2</sup>")
+  					.addTo(map);
+        });
+
+        // Change the cursor style back to a pointer
+        // and remove the popup when it leaves.
+  			map.on('mouseleave', 'sea_ice_north_march', function(e) {
+  				map.getCanvas().style.cursor = '';
+          popup.remove();
+  			});
 
     });
   </script>
