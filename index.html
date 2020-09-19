@@ -225,6 +225,8 @@
           'fill-opacity': 0.5
         },
       });
+      map.setLayoutProperty('sea ice', 'visibility', 'visible');
+      map.setLayoutProperty('currents', 'visibility', 'visible');
     };
 
     function addControl(geojson, currents) {
