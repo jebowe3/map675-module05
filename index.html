@@ -121,7 +121,6 @@
 </head>
 
 <body>
-  <nav id="menu"></nav>
   <div id='map'></div>
   <div class="map-overlay top">
     <div class="map-overlay-inner">
@@ -133,6 +132,7 @@
       <div id="chart"></div>
     </div>
   </div>
+  <nav id="menu"></nav>
   <script>
     mapboxgl.accessToken = 'pk.eyJ1IjoiamVib3dlMyIsImEiOiJjajY1M3l6bWIxeTQwMndtcXRuN3F4ejFpIn0.aE7P49pqaBKjy2HTOw-tgw';
 
@@ -154,29 +154,33 @@
     */
     function filterBy(year) {
       let filters = ['==', 'year', year];
-      map.setFilter('sea_ice_north_march', filters);
+      map.setFilter('sea ice', filters);
       let label = document.getElementById('slider').value;
       document.getElementById('year').textContent = label;
     };
 
     // when the map is done loading
     map.on('load', () => {
-      // request our GEOJSON data
-      d3.json('./data/sea_ice_march_4326_reduced_new.geojson').then((geojson) => {
-        // when loaded
-        addLayer(geojson);
+
+      // define incoming geojson files
+      const iceData = d3.json('./data/sea_ice_march_4326_reduced_new.geojson');
+      const currentData = d3.json('./data/currents.geojson');
+
+      // promise to wait until geojson files are loaded
+      Promise.all([iceData, currentData]).then((data) => {
+        // define the data according to its order in object array
+        const geojson = data[0];
+        const currents = data[1];
+        // call defined functions
+        addLayers(geojson, currents);
+        addControl(geojson, currents);
         addChart(geojson);
-        //addLegend(geojson);
-        addInteraction(geojson);
+        addInteraction(geojson, currents);
       });
-      d3.json('./data/currents.geojson').then((currents) => {
-        addCurrents(currents);
-        addMouseover(currents);
-        addLayerControl(currents);
-      })
+
     });
 
-    function addLayer(geojson) {
+    function addLayers(geojson, currents) {
       // first add the source to the map
       map.addSource('sea_ice', {
         type: 'geojson',
@@ -184,7 +188,7 @@
       });
       // add the GeoJSON data as a mapbox gl layer
       map.addLayer({
-        'id': 'sea_ice_north_march',
+        'id': 'sea ice',
         'type': 'fill',
         'source': 'sea_ice', // refers to source above
         'paint': {
@@ -202,6 +206,60 @@
           let year = e.target.value;
           filterBy(year);
         });
+
+      // first add the source to the map
+      map.addSource('currents_4326', {
+        type: 'geojson',
+        data: currents // use our data as the data source
+      });
+      // add the GeoJSON data as a mapbox gl layer
+      map.addLayer({
+        'id': 'currents',
+        'type': 'fill',
+        'source': 'currents_4326', // refers to source above
+        'paint': {
+          'fill-color': ['match',
+            ['get', 'TEMP'],
+            'warm', 'red', 'cold', 'blue', /* other */ '#ccc'
+          ],
+          'fill-opacity': 0.5
+        },
+      });
+    };
+
+    function addControl(geojson, currents) {
+      // enumerate ids of the layers
+      var toggleableLayerIds = ['sea ice', 'currents'];
+
+      // set up the corresponding toggle button for each layer
+      for (var i = 0; i < toggleableLayerIds.length; i++) {
+        var id = toggleableLayerIds[i];
+
+        var link = document.createElement('a');
+        link.href = '#';
+        link.className = 'active';
+        link.textContent = id;
+
+        link.onclick = function(e) {
+          var clickedLayer = this.textContent;
+          e.preventDefault();
+          e.stopPropagation();
+
+          var visibility = map.getLayoutProperty(clickedLayer, 'visibility');
+
+          // toggle layer visibility by changing the layout object's visibility property
+          if (visibility === 'visible') {
+            map.setLayoutProperty(clickedLayer, 'visibility', 'none');
+            this.className = '';
+          } else {
+            this.className = 'active';
+            map.setLayoutProperty(clickedLayer, 'visibility', 'visible');
+          }
+        };
+
+        var layers = document.getElementById('menu');
+        layers.appendChild(link);
+      }
     };
 
     // define the function that adds the sea ice area chart
@@ -243,12 +301,8 @@
       // draw it on the page
       chart.render();
     };
-    /*
-        function addLegend(geojson) {
-          console.log(avg);
-        };
-    */
-    function addInteraction(geojson) {
+
+    function addInteraction(geojson, currents) {
 
       // create a popup without adding to map
       let popup = new mapboxgl.Popup({
@@ -257,7 +311,7 @@
       });
 
       // when the mouse moves on the vector...
-      map.on('mousemove', 'sea_ice_north_march', function(e) {
+      map.on('mousemove', 'sea ice', function(e) {
         // define ice vector
         let iceFeature = e.features[0];
         // define the area covered by ice
@@ -273,43 +327,11 @@
       });
 
       // when the mouse leaves the vector...
-      map.on('mouseleave', 'sea_ice_north_march', function(e) {
+      map.on('mouseleave', 'sea ice', function(e) {
         // change the cursor style back to a pointer
         map.getCanvas().style.cursor = '';
         // and remove the popup
         popup.remove();
-      });
-
-    };
-
-    function addCurrents(currents) {
-      console.log(currents);
-      // first add the source to the map
-      map.addSource('currents_4326', {
-        type: 'geojson',
-        data: currents // use our data as the data source
-      });
-      // add the GeoJSON data as a mapbox gl layer
-      map.addLayer({
-        'id': 'currents',
-        'type': 'fill',
-        'source': 'currents_4326', // refers to source above
-        'paint': {
-          'fill-color': ['match',
-            ['get', 'TEMP'],
-            'warm', 'red', 'cold', 'blue', /* other */ '#ccc'
-          ],
-          'fill-opacity': 0.75
-        },
-      });
-    };
-
-    function addMouseover(currents) {
-
-      // create a popup without adding to map
-      let popup = new mapboxgl.Popup({
-        closeButton: false,
-        closeOnClick: false
       });
 
       // when the mouse moves on the vector...
@@ -337,42 +359,9 @@
         // and remove the popup
         popup.remove();
       });
+
     };
 
-    function addLayerControl(currents) {
-      // enumerate ids of the layers
-      var toggleableLayerIds = ['currents'];
-
-      // set up the corresponding toggle button for each layer
-      for (var i = 0; i < toggleableLayerIds.length; i++) {
-        var id = toggleableLayerIds[i];
-
-        var link = document.createElement('a');
-        link.href = '#';
-        link.className = 'active';
-        link.textContent = id;
-
-        link.onclick = function(e) {
-          var clickedLayer = this.textContent;
-          e.preventDefault();
-          e.stopPropagation();
-
-          var visibility = map.getLayoutProperty(clickedLayer, 'visibility');
-
-          // toggle layer visibility by changing the layout object's visibility property
-          if (visibility === 'visible') {
-            map.setLayoutProperty(clickedLayer, 'visibility', 'none');
-            this.className = '';
-          } else {
-            this.className = 'active';
-            map.setLayoutProperty(clickedLayer, 'visibility', 'visible');
-          }
-        };
-
-        var layers = document.getElementById('menu');
-        layers.appendChild(link);
-      }
-    }
   </script>
 
 </body>
