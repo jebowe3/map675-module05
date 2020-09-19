@@ -75,10 +75,53 @@
       top: 10px;
       right: 15px;
     }
+
+    #menu {
+      background: #fff;
+      position: absolute;
+      z-index: 1;
+      top: 10px;
+      right: 10px;
+      border-radius: 3px;
+      width: 120px;
+      border: 1px solid rgba(0, 0, 0, 0.4);
+      font-family: 'Open Sans', sans-serif;
+    }
+
+    #menu a {
+      font-size: 13px;
+      color: #404040;
+      display: block;
+      margin: 0;
+      padding: 0;
+      padding: 10px;
+      text-decoration: none;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.25);
+      text-align: center;
+    }
+
+    #menu a:last-child {
+      border: none;
+    }
+
+    #menu a:hover {
+      background-color: #f8f8f8;
+      color: #404040;
+    }
+
+    #menu a.active {
+      background-color: #3887be;
+      color: #ffffff;
+    }
+
+    #menu a.active:hover {
+      background: #3074a4;
+    }
   </style>
 </head>
-<body>
 
+<body>
+  <nav id="menu"></nav>
   <div id='map'></div>
   <div class="map-overlay top">
     <div class="map-overlay-inner">
@@ -96,7 +139,7 @@
     const map = new mapboxgl.Map({
       container: 'map', // container id
       style: 'mapbox://styles/jebowe3/ckf732iti02zw1as14q0tjxgj', // stylesheet location
-      center: [0, 5], // starting position [lng, lat]
+      center: [-5, 5], // starting position [lng, lat]
       zoom: 2.5 // starting zoom
     });
 
@@ -105,7 +148,10 @@
 
     // empty array to hold all the areas in the data
     const areas = [];
-
+    /*
+        // the average area of sea ice in square miles
+        const avg = 6009371;
+    */
     function filterBy(year) {
       let filters = ['==', 'year', year];
       map.setFilter('sea_ice_north_march', filters);
@@ -123,6 +169,11 @@
         //addLegend(geojson);
         addInteraction(geojson);
       });
+      d3.json('./data/currents.geojson').then((currents) => {
+        addCurrents(currents);
+        addMouseover(currents);
+        addLayerControl(currents);
+      })
     });
 
     function addLayer(geojson) {
@@ -137,8 +188,9 @@
         'type': 'fill',
         'source': 'sea_ice', // refers to source above
         'paint': {
-          'fill-color': '#87bad4',
-          'fill-opacity': 0.7
+          //'fill-color': '#87bad4',
+          'fill-color': '#fff',
+          'fill-opacity': 0.75
         },
       });
       // set filter to first year
@@ -191,11 +243,15 @@
       // draw it on the page
       chart.render();
     };
-
+    /*
+        function addLegend(geojson) {
+          console.log(avg);
+        };
+    */
     function addInteraction(geojson) {
 
       // create a popup without adding to map
-      const popup = new mapboxgl.Popup({
+      let popup = new mapboxgl.Popup({
         closeButton: false,
         closeOnClick: false
       });
@@ -226,6 +282,97 @@
 
     };
 
+    function addCurrents(currents) {
+      console.log(currents);
+      // first add the source to the map
+      map.addSource('currents_4326', {
+        type: 'geojson',
+        data: currents // use our data as the data source
+      });
+      // add the GeoJSON data as a mapbox gl layer
+      map.addLayer({
+        'id': 'currents',
+        'type': 'fill',
+        'source': 'currents_4326', // refers to source above
+        'paint': {
+          'fill-color': ['match',
+            ['get', 'TEMP'],
+            'warm', 'red', 'cold', 'blue', /* other */ '#ccc'
+          ],
+          'fill-opacity': 0.75
+        },
+      });
+    };
+
+    function addMouseover(currents) {
+
+      // create a popup without adding to map
+      let popup = new mapboxgl.Popup({
+        closeButton: false,
+        closeOnClick: false
+      });
+
+      // when the mouse moves on the vector...
+      map.on('mousemove', 'currents', function(e) {
+        // define current vector
+        let currentFeature = e.features[0];
+        // define the current name
+        let currentName = currentFeature.properties.NAME;
+        // define the current temperature
+        let currentTemp = currentFeature.properties.TEMP;
+        // change the cursor style as a UI indicator.
+        map.getCanvas().style.cursor = 'pointer';
+        // get the popup defined above
+        popup
+          .setLngLat(e.lngLat)
+          .setHTML(currentName + " Current<br>" +
+            currentTemp + " current<br>")
+          .addTo(map);
+      });
+
+      // when the mouse leaves the vector...
+      map.on('mouseleave', 'currents', function(e) {
+        // change the cursor style back to a pointer
+        map.getCanvas().style.cursor = '';
+        // and remove the popup
+        popup.remove();
+      });
+    };
+
+    function addLayerControl(currents) {
+      // enumerate ids of the layers
+      var toggleableLayerIds = ['currents'];
+
+      // set up the corresponding toggle button for each layer
+      for (var i = 0; i < toggleableLayerIds.length; i++) {
+        var id = toggleableLayerIds[i];
+
+        var link = document.createElement('a');
+        link.href = '#';
+        link.className = 'active';
+        link.textContent = id;
+
+        link.onclick = function(e) {
+          var clickedLayer = this.textContent;
+          e.preventDefault();
+          e.stopPropagation();
+
+          var visibility = map.getLayoutProperty(clickedLayer, 'visibility');
+
+          // toggle layer visibility by changing the layout object's visibility property
+          if (visibility === 'visible') {
+            map.setLayoutProperty(clickedLayer, 'visibility', 'none');
+            this.className = '';
+          } else {
+            this.className = 'active';
+            map.setLayoutProperty(clickedLayer, 'visibility', 'visible');
+          }
+        };
+
+        var layers = document.getElementById('menu');
+        layers.appendChild(link);
+      }
+    }
   </script>
 
 </body>
