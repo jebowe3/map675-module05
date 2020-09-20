@@ -9,7 +9,6 @@
   <link href='https://api.mapbox.com/mapbox-gl-js/v1.12.0/mapbox-gl.css' rel='stylesheet' />
   <script src="https://d3js.org/d3.v6.min.js"></script>
   <script src="https://unpkg.com/topojson@3"></script>
-  <script src='https://api.mapbox.com/mapbox.js/plugins/turf/v3.0.11/turf.min.js'></script>
   <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
   <style>
     body {
@@ -126,7 +125,7 @@
   <div class="map-overlay top">
     <div class="map-overlay-inner">
       <h2>Average Sea Ice Extent in March</h2>
-      <h4>By Jay Bowen</h4>
+      <h4>By Jay Bowen, data from <a href="ftp://sidads.colorado.edu/DATASETS/NOAA/G02135/north/monthly/shapefiles/shp_extent/03_Mar/">NSIDC</a> and <a href="https://hub.arcgis.com/datasets/24bfd85e97b042948e6ed4928dc45a8b_8?geometry=-149.678%2C27.381%2C100.811%2C66.517">ArcGIS Hub</a>.</h4>
       <label id="year"></label>
       <input id="slider" type="range" min="1979" max="2020" step="1" value="1979" />
     </div>
